@@ -1,0 +1,8 @@
+- name: check node if joined
+  stat:
+    path: /etc/kubernetes/bootstrap-kubelet.conf
+  register: kubeadm_joined
+
+- name: join in master
+  shell: kubeadm join {{master_ip}}:6443 --token {{k8s_token}} --discovery-token-ca-cert-hash sha256:{{k8s_token_hash}}
+  when: not kubeadm_joined.stat.exists

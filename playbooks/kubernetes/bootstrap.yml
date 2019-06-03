@@ -1,0 +1,45 @@
+---
+- name: Deploy kubrenetes master 
+  hosts: master
+  gather_facts: no
+  pre_tasks:
+  - name: check connection with master
+    ping: null
+
+  - name: create user kube
+    user:
+      name: kube
+
+  # - name: download kubenetes tools
+  #   get_url: 
+  #     url: https://dl.k8s.io/v1.14.0/kubernetes.tar.gz 
+  #     dest: /home/kube/kubernetes.tar.gz
+
+  # - name: unachiave kubenetes tools
+  #   unarchive: remote_src=yes src=/home/kube/kubernetes.tar.gz dest=/home/kube/
+
+  roles:
+    # - install-docker
+    # - install-kube
+    - init-master
+
+- name: Deploy kubernetes slave
+  hosts: slave
+  gather_facts: no
+  pre_tasks:
+  - name: check connection with master
+    ping: null
+  
+  - set_fact: k8s_token={{ hostvars['k8s-master']['k8s_token'] }}
+  - set_fact: k8s_token_hash={{ hostvars['k8s-master']['k8s_token_hash'] }}
+
+
+  - debug: var=master_ip
+
+  roles:
+    - install-docker
+    - install-kube
+    - init-slave
+  
+  vars: 
+    master_ip: "{{ hostvars['k8s-master']['ansible_ssh_host'] }}"

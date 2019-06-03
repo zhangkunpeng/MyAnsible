@@ -1,0 +1,33 @@
+---
+- name: install apt-transport-https
+  apt: name=apt-transport-https update_cache=yes
+  
+- name: install curl
+  apt: name=curl
+
+- name: download apt-key.gpg
+  get_url:
+    url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+    dest: /root/apt-key.gpg
+
+- name: add apt-key
+  shell: apt-key add /root/apt-key.gpg
+
+- name: create an apt source file with kubenetes
+  lineinfile:
+    path: /etc/apt/sources.list.d/kubernetes.list
+    line: deb https://apt.kubernetes.io/ kubernetes-xenial main
+    create: yes
+
+- name: install kubelet kubeadm kubectl
+  apt: name={{ item }} update_cache=yes
+  become: True
+  with_items:
+    - kubelet
+    - kubeadm
+    - kubectl
+
+- name: swap disable
+  shell: swapoff -a
+  
+

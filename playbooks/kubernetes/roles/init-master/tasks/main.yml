@@ -1,0 +1,50 @@
+- name: check kubernetes if inited
+  stat:
+    path: /etc/kubernetes/admin.conf
+  register: kubeadm_init_complete
+
+- block:
+  - name: kubeadm init
+    # debug: var=ansible_ssh_host
+    shell: kubeadm init --apiserver-advertise-address {{ ansible_ssh_host }} --pod-network-cidr=10.244.0.0/16
+    register: init_result
+
+  - name: failed if kubeadm exec failed
+    fail: 
+      msg: "kubeadm init exec failed"
+    when: init_result.rc > 0
+
+  when: not kubeadm_init_complete.stat.exists
+
+- name: dir $HOME/.kube exists 
+  file:
+    path: /home/kube/.kube
+    state: directory
+    owner: kube
+  
+- name: copy admin.conf to .kube
+  copy:
+    remote_src: yes
+    src: /etc/kubernetes/admin.conf
+    dest: /home/kube/.kube/config
+    owner: kube
+
+- name: create token
+  shell: kubeadm token create
+  register: token_result
+
+- set_fact: k8s_token={{ token_result.stdout }}
+
+- debug: var=k8s_token
+
+- name: discovery token ca cert hash
+  shell: openssl x509 -pubkey -in /etc/kubernetes/pki/ca.crt | openssl rsa -pubin -outform der 2>/dev/null | openssl dgst -sha256 -hex | sed 's/^.* //'
+  register: token_hash_result
+
+- set_fact: k8s_token_hash={{ token_hash_result.stdout }}
+
+- debug: var=k8s_token_hash
+
+- name: install a pod network add-on
+  become_user: kube
+  shell: export KUBECONFIG=/etc/kubernetes/admin.conf; kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/62e44c867a2846fefb68bd5f178daf4da3095ccb/Documentation/kube-flannel.yml
